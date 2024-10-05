@@ -1,7 +1,7 @@
 import torch
-from data.liveDataLoader import LiveDataLoader
+from utils.liveDataloader import LiveDataLoader
 from utils.generate import get_input_activations_at_layer
-from model import Transformer
+from mistral7b import Transformer
 import os
 
 """

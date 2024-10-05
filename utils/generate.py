@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple
 import torch
 from mistral_inference.cache import BufferCache
-from model import Transformer
+from mistral7b import Transformer
 
 """
 

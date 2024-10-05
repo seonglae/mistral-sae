@@ -22,7 +22,7 @@ optimizer = torch.optim.AdamW(
     model.parameters(), lr=lr, eps=6.25e-10, betas=(0.9, 0.999)
 )
 
-MISTRAL_MODEL_PATH = "PATH TO MISTRAL7b WEIGHTS"
+MISTRAL_MODEL_PATH = "mistralai/Mistral-7B-Instruct-v0.3"
 actsLoader = ActivationsLoader(128, 512, MISTRAL_MODEL_PATH, target_layer=16)
 
 
