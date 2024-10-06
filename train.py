@@ -1,7 +1,7 @@
 import torch
-from sae import SparseAutoencoder
+from mistral_sae.sae import SparseAutoencoder
 import torch.nn.functional as F
-from utils.activationsLoader import ActivationsLoader
+from mistral_sae.activationsLoader import ActivationsLoader
 
 """
 
@@ -58,7 +58,7 @@ while True:
         model.norm_grad()
 
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        torch.nn.mistral_sae.clip_grad_norm_(model.parameters(), max_norm=1.0)
         scaler.step(optimizer)
         scaler.update()
 

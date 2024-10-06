@@ -1,7 +1,7 @@
 import torch
-from utils.liveDataloader import LiveDataLoader
-from utils.generate import get_input_activations_at_layer
-from mistral7b import Transformer
+from mistral_sae.liveDataloader import LiveDataLoader
+from mistral_sae.generate import get_input_activations_at_layer
+from mistral_sae.model import SteerableTransformer
 import os
 
 """
@@ -69,7 +69,7 @@ class ActivationsLoader:
         def split_list(lst, n):
             return [lst[i : i + n] for i in range(0, len(lst), n)]
 
-        mistral7b = Transformer.from_folder(self.mistral_models_path).cuda()
+        mistral7b = SteerableTransformer.from_folder(self.mistral_models_path).cuda()
 
         total_acts = torch.empty((0, 5120))
         for i in range(8):
