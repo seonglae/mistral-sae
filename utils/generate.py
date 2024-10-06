@@ -1,28 +1,25 @@
-from typing import List, Optional, Tuple
 import torch
-from mistral_inference.cache import BufferCache
-from mistral7b import Transformer
+from typing import List, Optional, Tuple
 
-"""
-
-Code is heavily based on Mistral's official implementation found here: https://github.com/mistralai/mistral-inference 
-
-"""
+# Import the existing generate function and necessary classes
+from mistral_inference.generate import sample
+from mistral_sae.model import SteerableTransformer
 
 
 @torch.inference_mode()
-def generate(
+def generate_with_sae(
     encoded_prompts: List[List[int]],
-    model: Transformer,
+    model: SteerableTransformer,
     *,
     max_tokens: int,
     temperature: float,
     eos_id: Optional[int] = None,
     sae=None,
-    features=None
+    features=None,
+    top_p: float = 0.9,
 ) -> Tuple[List[List[int]], List[List[float]]]:
-    model = model.eval()
-    B, V = len(encoded_prompts), model.args.vocab_size
+    model.eval()
+    B, _ = len(encoded_prompts), model.args.vocab_size
 
     # Bookkeeping
     logprobs: List[List[float]] = [[] for _ in range(B)]
@@ -30,6 +27,9 @@ def generate(
     is_finished = [False for _ in range(B)]
 
     max_prompt_len = max(len(p) for p in encoded_prompts)
+
+    # Initialize cache if needed
+    cache = None  # Modify if you plan to use caching
 
     for i in range(max_prompt_len + max_tokens):
         current_tokens = []
@@ -58,29 +58,48 @@ def generate(
 
         # Determine if we're processing input tokens or generating
         is_generating = i >= max_prompt_len
+
+        # Forward pass through the model
         prelogits = model.forward(
             input_tensor,
             seqlens=current_seqlens,
-            cache=None,  # No cache
-            using_sae=is_generating,
-            sae=sae if is_generating else None,
+            cache=cache,  # No cache in this example
+            using_sae=True,
+            sae=sae,
             features=features,
         )
 
         logits = torch.log_softmax(prelogits, dim=-1)
+
+        # Integrate SAE model outputs if generating
+        if sae is not None and is_generating:
+            # Obtain SAE activations
+            with torch.no_grad():
+                sae_activations = sae(input_tensor.unsqueeze(0))
+                # Assume sae_activations is of shape [1, num_features, seq_len]
+                # You may need to process sae_activations to match logits shape
+                # Example: Map SAE activations to vocab logits
+                # This is a placeholder and should be replaced with your actual logic
+                sae_adjustment = sae_activations.squeeze(0).mean(dim=0)
+                sae_adjustment = sae_adjustment[-1]  # Take activation for the last token
+                sae_adjustment = sae_adjustment.unsqueeze(0).expand_as(logits)
+                # Adjust logits with SAE activations
+                logits += sae_adjustment  # Adjust logits (modify as needed)
 
         # Process logits for each sequence
         offset = 0
         for b in range(B):
             if i < len(encoded_prompts[b]) - 1:
                 # Still processing prompt, record logprob
-                logprobs[b].append(logits[offset + i, encoded_prompts[b][i + 1]].item())
+                idx = offset + i
+                next_token_id = encoded_prompts[b][i + 1]
+                logprobs[b].append(logits[idx, next_token_id].item())
             elif i >= len(encoded_prompts[b]) and not is_finished[b]:
                 # Generate next token
                 seq_logits = logits[
                     offset + current_seqlens[b] - 1 : offset + current_seqlens[b]
                 ]
-                next_token = sample(seq_logits, temperature=temperature, top_p=0.8)
+                next_token = sample(seq_logits, temperature=temperature, top_p=top_p)
                 generated_tokens[b].append(next_token.item())
                 logprobs[b].append(seq_logits[0, next_token.item()].item())
 
@@ -93,69 +112,3 @@ def generate(
             break
 
     return generated_tokens, logprobs
-
-
-@torch.inference_mode()
-def get_input_activations_at_layer(
-    encoded_prompts: List[List[int]],
-    model: Transformer,
-    target_layer: int,
-    *,
-    chunk_size: Optional[int] = None
-) -> torch.Tensor:
-    model = model.eval()
-    with torch.no_grad():
-        B = len(encoded_prompts)
-
-        seqlens = [len(x) for x in encoded_prompts]
-
-        # One chunk if size not specified
-        max_prompt_len = max(seqlens)
-        if chunk_size is None:
-            chunk_size = max_prompt_len
-
-        # List to store activations for the target layer
-        layer_activations = []
-
-        # Encode prompt by chunks and get activations
-        for s in range(0, max_prompt_len, chunk_size):
-            prompt_chunks = [p[s : s + chunk_size] for p in encoded_prompts]
-            assert all(len(p) > 0 for p in prompt_chunks)
-
-            input_ids = torch.tensor(
-                sum(prompt_chunks, []), device=model.device, dtype=torch.long
-            )
-            chunk_seqlens = [len(p) for p in prompt_chunks]
-
-            # Get activations for the target layer
-            activations = model.get_acts(
-                input_ids, chunk_seqlens, target_layer=target_layer, cache=None
-            )
-            layer_activations.append(activations)
-
-        # Concatenate activations for the target layer
-        all_activations = torch.cat(layer_activations, dim=0)
-
-        return all_activations
-
-
-def sample(logits: torch.Tensor, temperature: float, top_p: float) -> torch.Tensor:
-    if temperature > 0:
-        probs = torch.softmax(logits / temperature, dim=-1)
-        next_token = sample_top_p(probs, top_p)
-    else:
-        next_token = torch.argmax(logits, dim=-1).unsqueeze(0)
-
-    return next_token.reshape(-1)
-
-
-def sample_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:
-    assert 0 <= p <= 1
-
-    probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
-    probs_sum = torch.cumsum(probs_sort, dim=-1)
-    mask = probs_sum - probs_sort > p
-    probs_sort[mask] = 0.0
-    probs_sort.div_(probs_sort.sum(dim=-1, keepdim=True))
-    next_token = torch.multinomial(probs_sort, num_samples=1)
-    return torch.gather(probs_idx, -1, next_token)
