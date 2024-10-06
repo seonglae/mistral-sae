@@ -4,13 +4,14 @@ import torch
 
 # CODE IS BASED ON: https://github.com/jbloomAus/SAELens/blob/main/tutorials/using_an_sae_as_a_steering_vector.ipynb
 
-device = "cpu"
-SAE_PATH = "path to folder containing 'cfg.json' and 'sae_weights.safetensors' from HuggingFace"
+device = "cuda"
+# path to folder containing 'cfg.json' and 'sae_weights.safetensors' from HuggingFace
+SAE_PATH = "sae.pth"
 FEATURE_INDEX = 79557 # pacific ocean feature
 STEERING_ON = True
 
 
-model = HookedTransformer.from_pretrained("mistral-7b-instruct", dtype="float16", device=device)
+model = HookedTransformer.from_pretrained("Mistral-7B-Instruct-v0.3", dtype="float16", device=device)
 sae = SAE.load_from_pretrained(SAE_PATH, dtype="float16", device=device)
 
 steering_vector = sae.W_dec[FEATURE_INDEX]

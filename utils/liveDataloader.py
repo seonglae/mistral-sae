@@ -18,17 +18,17 @@ class LiveDataLoader:
     def __init__(self, batch_size, mistral_models_path):
         self.batch_size = batch_size
 
-        folder_name = ""  # folder with jsonl.zst files
+        folder_name = "pile-uncopyrighted/test"  # folder with jsonl.zst files
         filenames = os.listdir(folder_name)
         filenames = sorted(filenames)
         filenames = [os.path.join(folder_name, f) for f in filenames]
         self.filenames = filenames
 
         self.tokenizer = MistralTokenizer.from_file(
-            f"{mistral_models_path}/tokenizer.model.v3"
+            f"{mistral_models_path}/tekken.json"
         )
 
-        self.curr_file = 9
+        self.curr_file = 0
         self.file_path = self.filenames[self.curr_file]
         self.batch_size = batch_size
         self.file = None

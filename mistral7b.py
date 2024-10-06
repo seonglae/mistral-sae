@@ -356,52 +356,51 @@ class Transformer(nn.Module):
             torch.distributed.broadcast(outs, src=self.num_pipeline_ranks - 1)
         return outs.float()
 
-    def load_state_dict(
-        self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False
-    ) -> None:
-        state_to_load = {}
-        skipped = set([])
-        for k, v in state_dict.items():
-            if k.startswith("tok_embeddings"):
-                if self.pipeline_rank == 0:
-                    state_to_load[k] = v
-                else:
-                    logging.debug(
-                        "Skipping parameter %s at pipeline rank %d",
-                        k,
-                        self.pipeline_rank,
-                    )
-                    skipped.add(k)
-            elif k.startswith("norm") or k.startswith("output"):
-                if self.pipeline_rank == self.num_pipeline_ranks - 1:
-                    state_to_load[k] = v
-                else:
-                    logging.debug(
-                        "Skipping parameter %s at pipeline rank %d",
-                        k,
-                        self.pipeline_rank,
-                    )
-                    skipped.add(k)
-            elif k.startswith("layers"):
-                layer_id = k.split(".")[1]
-                if layer_id in self.layers:
-                    state_to_load[k] = v
-                else:
-                    logging.debug(
-                        "Skipping parameter %s at pipeline rank %d",
-                        k,
-                        self.pipeline_rank,
-                    )
-                    skipped.add(k)
+    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False) -> None:
+      state_to_load = {}
+      skipped = set([])
+      for k, v in state_dict.items():
+        if k.startswith("tok_embeddings"):
+            if self.pipeline_rank == 0:
+                state_to_load[k] = v
             else:
-                raise ValueError(f"Unexpected key {k}")
-        assert set(state_dict.keys()) == skipped.union(set(state_to_load.keys()))
-        super().load_state_dict(state_to_load, strict=strict, assign=assign)
+                logging.debug(
+                    "Skipping parameter %s at pipeline rank %d",
+                    k,
+                    self.pipeline_rank,
+                )
+                skipped.add(k)
+        elif k.startswith("norm") or k.startswith("output"):
+            if self.pipeline_rank == self.num_pipeline_ranks - 1:
+                state_to_load[k] = v
+            else:
+                logging.debug(
+                    "Skipping parameter %s at pipeline rank %d",
+                    k,
+                    self.pipeline_rank,
+                )
+                skipped.add(k)
+        elif k.startswith("layers"):
+            layer_id = k.split(".")[1]
+            if layer_id in self.layers:
+                state_to_load[k] = v
+            else:
+                logging.debug(
+                    "Skipping parameter %s at pipeline rank %d",
+                    k,
+                    self.pipeline_rank,
+                )
+                skipped.add(k)
+        else:
+            logging.warning(f"Skipping unexpected key {k}")
+            skipped.add(k)
+            continue
+      super().load_state_dict(state_to_load, strict=False, assign=assign)
 
     @staticmethod
     def from_folder(
         folder: Union[Path, str],
-        max_batch_size: int = 1024,
+        max_batch_size: int = 32768,
         num_pipeline_ranks: int = 1,
         device: Union[torch.device, str] = "cuda",
         dtype: Optional[torch.dtype] = None,

@@ -19,8 +19,8 @@ class ActivationsLoader:
         mistral_models_path,
         target_layer=24,
         dataloader_batch_size=16,
-        d_model=4096,
-        act_dir="act-data",
+        d_model=5120,
+        act_dir="pixtral-act",
     ):
         self.batch_size = batch_size
         self.num_batch = num_batch
@@ -62,7 +62,7 @@ class ActivationsLoader:
         return tokens
 
     def refresh_data(self):
-        self.delete_pt_files("act-data")
+        self.delete_pt_files("pixtral-act")
         self.file_counter = 0
         self.filenames = []
 
@@ -71,12 +71,12 @@ class ActivationsLoader:
 
         mistral7b = Transformer.from_folder(self.mistral_models_path).cuda()
 
-        total_acts = torch.empty((0, 4096))
+        total_acts = torch.empty((0, 5120))
         for i in range(8):
             print(f"batch {i+1}")
             batch = self.tokensloader.next_batch()
             better_batch = [
-                sublist for lst in batch for sublist in split_list(lst, 4096)
+                sublist for lst in batch for sublist in split_list(lst, 5120)
             ]
             for b in better_batch:
                 activations = get_input_activations_at_layer(
@@ -93,8 +93,8 @@ class ActivationsLoader:
         print(total_acts.shape)
 
         # save data to files
-        split_size = 4096
-        output_dir = "act-data"
+        split_size = 5120
+        output_dir = "pixtral-act"
         splits = torch.split(total_acts, split_size, dim=0)
 
         for i, split in enumerate(splits):

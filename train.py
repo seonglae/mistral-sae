@@ -10,9 +10,9 @@ You might notice some weird GPU memory management (see line 83), a result of my 
 
 """
 
-D_MODEL = 4096
+D_MODEL = 5120
 D_HIDDEN = 131072
-BATCH_SIZE = 256
+BATCH_SIZE = 32768
 scale = D_HIDDEN / (2**14)
 lr = 2e-4 / scale**0.5
 
@@ -22,7 +22,7 @@ optimizer = torch.optim.AdamW(
     model.parameters(), lr=lr, eps=6.25e-10, betas=(0.9, 0.999)
 )
 
-MISTRAL_MODEL_PATH = "mistralai/Mistral-7B-Instruct-v0.3"
+MISTRAL_MODEL_PATH = "Pixtral-12B-2409"
 actsLoader = ActivationsLoader(128, 512, MISTRAL_MODEL_PATH, target_layer=16)
 
 
@@ -64,7 +64,7 @@ while True:
 
         if count % 1000 == 0:
             # Periodically save model
-            torch.save(model.state_dict(), "sae.pth")
+            torch.save(model.state_dict(), "pixtral.pth")
 
         if count % 50 == 0:
             # Logging...
