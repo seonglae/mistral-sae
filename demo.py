@@ -6,13 +6,17 @@ import torch
 
 device = "cuda"
 # path to folder containing 'cfg.json' and 'sae_weights.safetensors' from HuggingFace
-SAE_PATH = "sae.pth"
+SAE_PATH = "tylercosgrove/mistral-7b-sparse-autoencoder-layer16"
 FEATURE_INDEX = 79557 # pacific ocean feature
 STEERING_ON = True
 
 
-model = HookedTransformer.from_pretrained("Mistral-7B-Instruct-v0.3", dtype="float16", device=device)
-sae = SAE.load_from_pretrained(SAE_PATH, dtype="float16", device=device)
+model = HookedTransformer.from_pretrained("mistral-7b-instruct", dtype="float16", device=device)
+sae, cfg_dict, sparsity = SAE.from_pretrained(
+    release = SAE_PATH,
+    sae_id = ".",
+    device=device
+)
 
 steering_vector = sae.W_dec[FEATURE_INDEX]
 example_prompt = "Write me a poem."
