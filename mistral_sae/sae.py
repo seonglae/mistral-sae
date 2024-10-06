@@ -59,9 +59,9 @@ class SparseAutoencoder(nn.Module):
         return result
 
     def LN(self, x, eps=1e-5):
-        mu = x.mean(dim=-1, keepdim=True)
+        mu = x.float().mean(dim=-1, keepdim=True)
         x = x - mu
-        std = x.std(dim=-1, keepdim=True)
+        std = x.float().std(dim=-1, keepdim=True)
         x = x / (std + eps)
         return x, mu, std
 
@@ -69,7 +69,8 @@ class SparseAutoencoder(nn.Module):
         dead_mask = self.stats_last_nonzero > self.dead_steps_threshold
         return dead_mask
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
+        print(x.shape, self.b_pre.shape)
         x, mu, std = self.LN(x)
         x = x - self.b_pre
 
