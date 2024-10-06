@@ -16,7 +16,7 @@ def generate_with_sae(
     eos_id: Optional[int] = None,
     sae=None,
     features=None,
-    top_p: float = 0.9,
+    top_p: float = 0.8,
 ) -> Tuple[List[List[int]], List[List[float]]]:
     model.eval()
     B, _ = len(encoded_prompts), model.args.vocab_size
@@ -64,27 +64,12 @@ def generate_with_sae(
             input_tensor,
             seqlens=current_seqlens,
             cache=cache,  # No cache in this example
-            using_sae=True,
-            sae=sae,
+            using_sae=is_generating,
+            sae=sae if is_generating else None,
             features=features,
         )
 
         logits = torch.log_softmax(prelogits, dim=-1)
-
-        # Integrate SAE model outputs if generating
-        if sae is not None and is_generating:
-            # Obtain SAE activations
-            with torch.no_grad():
-                sae_activations = sae(input_tensor.unsqueeze(0))
-                # Assume sae_activations is of shape [1, num_features, seq_len]
-                # You may need to process sae_activations to match logits shape
-                # Example: Map SAE activations to vocab logits
-                # This is a placeholder and should be replaced with your actual logic
-                sae_adjustment = sae_activations.squeeze(0).mean(dim=0)
-                sae_adjustment = sae_adjustment[-1]  # Take activation for the last token
-                sae_adjustment = sae_adjustment.unsqueeze(0).expand_as(logits)
-                # Adjust logits with SAE activations
-                logits += sae_adjustment  # Adjust logits (modify as needed)
 
         # Process logits for each sequence
         offset = 0
@@ -112,3 +97,44 @@ def generate_with_sae(
             break
 
     return generated_tokens, logprobs
+
+@torch.inference_mode()
+def get_input_activations_at_layer(
+    encoded_prompts: List[List[int]],
+    model: SteerableTransformer,
+    target_layer: int,
+    *,
+    chunk_size: Optional[int] = None
+) -> torch.Tensor:
+    model = model.eval()
+    with torch.no_grad():
+        seqlens = [len(x) for x in encoded_prompts]
+
+        # One chunk if size not specified
+        max_prompt_len = max(seqlens)
+        if chunk_size is None:
+            chunk_size = max_prompt_len
+
+        # List to store activations for the target layer
+        layer_activations = []
+
+        # Encode prompt by chunks and get activations
+        for s in range(0, max_prompt_len, chunk_size):
+            prompt_chunks = [p[s : s + chunk_size] for p in encoded_prompts]
+            assert all(len(p) > 0 for p in prompt_chunks)
+
+            input_ids = torch.tensor(
+                sum(prompt_chunks, []), device=model.device, dtype=torch.long
+            )
+            chunk_seqlens = [len(p) for p in prompt_chunks]
+
+            # Get activations for the target layer
+            activations = model.get_acts(
+                input_ids, chunk_seqlens, target_layer=target_layer, cache=None
+            )
+            layer_activations.append(activations)
+
+        # Concatenate activations for the target layer
+        all_activations = torch.cat(layer_activations, dim=0)
+
+        return all_activations
