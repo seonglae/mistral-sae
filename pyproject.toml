@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "mistral-sae"
+version = "0.1.0"
+description = "Sparse AutoEncoder to decode Mistral LLM"
+authors = ["seonglae <sungle3737@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mistral-inference = "^1.4.0"
+transformers = "^4.45.2"
+torch = { url = "https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp310-cp310-win_amd64.whl" }
+xformers = { url = "https://download.pytorch.org/whl/cu124/xformers-0.0.28.post1-cp310-cp310-win_amd64.whl" }
+mistral-common = "^1.4.4"
+mistralai = "^1.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
