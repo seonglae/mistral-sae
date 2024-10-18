@@ -14,6 +14,7 @@ torch = { url = "https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp31
 xformers = { url = "https://download.pytorch.org/whl/cu124/xformers-0.0.28.post1-cp310-cp310-win_amd64.whl" }
 mistral-common = "^1.4.4"
 mistralai = "^1.1.0"
+transformer-lens = "^2.7.0"
 
 [build-system]
 requires = ["poetry-core"]

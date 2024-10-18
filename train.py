@@ -10,7 +10,7 @@ You might notice some weird GPU memory management (see line 83), a result of my 
 
 """
 
-D_MODEL = 5120
+D_MODEL = 4096
 D_HIDDEN = 131072
 BATCH_SIZE = 32768
 scale = D_HIDDEN / (2**14)
