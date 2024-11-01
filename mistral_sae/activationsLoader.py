@@ -17,10 +17,11 @@ class ActivationsLoader:
         batch_size,
         num_batch,
         mistral_models_path,
+        zst_folder_name,
+        act_dir,
         target_layer=24,
         dataloader_batch_size=16,
         d_model=5120,
-        act_dir="pixtral-act",
     ):
         self.batch_size = batch_size
         self.num_batch = num_batch
@@ -29,11 +30,12 @@ class ActivationsLoader:
         self.mistral_models_path = mistral_models_path
 
         self.tokensloader = LiveDataLoader(
-            dataloader_batch_size, mistral_models_path=mistral_models_path
+            dataloader_batch_size, zst_folder_name=zst_folder_name, mistral_models_path=mistral_models_path
         )
 
         self.act_dir = act_dir
 
+        os.makedirs(act_dir, exist_ok=True)
         if self.num_act_files() == 0:
             self.refresh_data()
 
@@ -62,7 +64,7 @@ class ActivationsLoader:
         return tokens
 
     def refresh_data(self):
-        self.delete_pt_files("pixtral-act")
+        self.delete_pt_files(self.act_dir)
         self.file_counter = 0
         self.filenames = []
 
@@ -71,12 +73,12 @@ class ActivationsLoader:
 
         mistral7b = SteerableTransformer.from_folder(self.mistral_models_path).cuda()
 
-        total_acts = torch.empty((0, 5120))
+        total_acts = torch.empty((0, self.d_model))
         for i in range(8):
             print(f"batch {i+1}")
             batch = self.tokensloader.next_batch()
             better_batch = [
-                sublist for lst in batch for sublist in split_list(lst, 5120)
+                sublist for lst in batch for sublist in split_list(lst, self.d_model)
             ]
             for b in better_batch:
                 activations = get_input_activations_at_layer(
@@ -93,8 +95,8 @@ class ActivationsLoader:
         print(total_acts.shape)
 
         # save data to files
-        split_size = 5120
-        output_dir = "pixtral-act"
+        split_size = 10
+        output_dir = self.act_dir
         splits = torch.split(total_acts, split_size, dim=0)
 
         for i, split in enumerate(splits):

@@ -15,19 +15,26 @@ Ugly/inefficient dataloader. Would not recommend looking too hard at this.
 
 
 class LiveDataLoader:
-    def __init__(self, batch_size, mistral_models_path):
+    def __init__(self, batch_size, mistral_models_path, zst_folder_name):
+        """Text Data Loader
+        Args:
+            batch_size (_type_): batch size
+            mistral_models_path (_type_): model path
+            zst_folder_name (_type_): json.zst files
+        """
         self.batch_size = batch_size
-
-        folder_name = "pile-uncopyrighted/test"  # folder with jsonl.zst files
-        filenames = os.listdir(folder_name)
+        filenames = os.listdir(zst_folder_name)
         filenames = sorted(filenames)
-        filenames = [os.path.join(folder_name, f) for f in filenames]
+        filenames = [os.path.join(zst_folder_name, f) for f in filenames]
         self.filenames = filenames
 
-        self.tokenizer = MistralTokenizer.from_file(
-            f"{mistral_models_path}/tekken.json"
-        )
+        # Check tokenizer json path
+        tokenizer_path = os.path.join(mistral_models_path, "tekken.json")
+        fallback_path = os.path.join(mistral_models_path, "tokenizer.model.v3")
+        if not os.path.exists(tokenizer_path):
+            tokenizer_path = fallback_path
 
+        self.tokenizer = MistralTokenizer.from_file(tokenizer_path)
         self.curr_file = 0
         self.file_path = self.filenames[self.curr_file]
         self.batch_size = batch_size
